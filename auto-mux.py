@@ -152,7 +152,7 @@ def main():
 	else:
 		for file in files:
 			# File data in JSON format, as returned by mkvmerge command line.
-			fileInfo = json.loads(subprocess.check_output('"{0}" "{1}" -i -F json'.format(mkvmergePath, file["path"]), shell=True))
+			fileInfo = json.loads(subprocess.check_output('"{}" "{}" -i -F json'.format(mkvmergePath, file["path"]), shell=True))
 
 			# Tracks which match language codes specified in langToKeep.
 			tracksToKeep = {}
@@ -171,7 +171,7 @@ def main():
 
 			# Output filename and title, if possible.
 			if title:
-				print_sep("{0} | {1}".format(file["name"], title), "=")
+				print_sep("{} | {}".format(file["name"], title), "=")
 			else:
 				print_sep(file["name"], "=")
 
@@ -220,7 +220,7 @@ def main():
 
 			# Ensure that the file will still have video/audio.
 			if "video" not in tracksToKeep.keys() or "audio" not in tracksToKeep.keys():
-				print('No video or audio tracks matching language codes "{0}"; skipping file.'.format(", ".join(langToKeep)))
+				print('No video or audio tracks matching language codes "{}"; skipping file.'.format(", ".join(langToKeep)))
 
 			# Finally, begin rebuilding the file.
 			else:
@@ -250,11 +250,11 @@ def main():
 						for track in tracksToKeep[mediaType]:
 							trackIds.append(str(track["id"]))
 
-						trackIdsArg += " -{0} {1}".format(mediaType[0], ",".join(trackIds))
+						trackIdsArg += " -{} {}".format(mediaType[0], ",".join(trackIds))
 
 				# If there's a cover file present, add the --attach-file parameter.
 				if cover:
-					trackIdsArg += " --attachment-mime-type {0} --attach-file {1}".format(cover["mimetype"], cover["filename"])
+					trackIdsArg += " --attachment-mime-type {} --attach-file {}".format(cover["mimetype"], cover["filename"])
 
 				# Create output folder.
 				if not os.path.exists(outputPath):
@@ -263,7 +263,7 @@ def main():
 				outputFilePath = os.path.join(outputPath, file["name"])
 
 				# Format the final shell command.
-				muxArguments = '"{0}" -o "{1}" --title "" --track-name -1:"" {2} --compression -1:none -M "{3}"'.format(
+				muxArguments = '"{}" -o "{}" --title "" --track-name -1:"" {} --compression -1:none -M "{}"'.format(
 					mkvmergePath,
 					cygwinPathToWinPath(outputFilePath),
 					trackIdsArg.strip(),
@@ -287,7 +287,7 @@ def main():
 					# Filesize may increase if no tracks are removed but an attachment is added.
 					diffVerb = "reduced" if newSize < oldSize else "increased"
 
-					print("File {0} from {1} to {2} (difference of {3} / {4}%).".format(
+					print("File {} from {} to {} (difference of {} / {}%).".format(
 						diffVerb,
 						readableFileSize(oldSize),
 						readableFileSize(newSize),
@@ -311,7 +311,7 @@ def main():
 				settings = filebotSettings["tv"]
 
 			# Construct the command.
-			filebotCommand = '"{0}" -rename "{1}" --db {2} --format "{3}" -non-strict'.format(
+			filebotCommand = '"{}" -rename "{}" --db {} --format "{}" -non-strict'.format(
 				filebotPath,
 				cygwinPathToWinPath(outputPath),
 				settings["db"],
@@ -329,11 +329,11 @@ def main():
 		# Output total data removed this session.
 		if totalDataRemoved:
 			print()
-			print_sep("Total data removed: {0}".format(readableFileSize(totalDataRemoved)))
+			print_sep("Total data removed: {}".format(readableFileSize(totalDataRemoved)))
 
 		# Finished.
 		print()
-		print("Finished at {0}.".format(time.strftime("%H:%M:%S")))
+		print("Finished at {}.".format(time.strftime("%H:%M:%S")))
 
 
 # size.py by cbwar
@@ -368,7 +368,7 @@ def printTracksSummary(tracks):
 		print(mediaType.capitalize() + ":")
 
 		for track in tracks[mediaType]:
-			summary = "ID: {0} | Codec: {1} | Language: {2}".format(track["id"], track["codec"], track["lang"])
+			summary = "ID: {} | Codec: {} | Language: {}".format(track["id"], track["codec"], track["lang"])
 
 			try:
 				summary += " | Name: " + track["name"]
