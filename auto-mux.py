@@ -42,6 +42,7 @@ def main():
 
 	# Used to determine which database/format should be used with FileBot.
 	# TV will be used when this is set to false.
+	# Remove bFilmMode = False for films!
 	bFilmMode = True
 	bFilmMode = False
 
