@@ -1,5 +1,5 @@
 # AutoMux
-A basic script to remove audio/subtitle tracks from MKV files based on a language "whitelist". Made for use with Cygwin.
+A basic script to remove audio/subtitle tracks from MKV files based on a language "whitelist". Made for use with [Cygwin](https://www.cygwin.com/).
 
 ## Requires
 * [MKVToolNix](https://mkvtoolnix.download/)
