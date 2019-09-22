@@ -42,7 +42,6 @@ def main():
 
 	# Used to determine which database/format should be used with FileBot.
 	# TV will be used when this is set to false.
-	# Remove bFilmMode = False for films!
 	bFilmMode = True
 	bFilmMode = False
 
@@ -52,7 +51,7 @@ def main():
 	# Languages to include when remuxing the file.
 	# Language codes follow ISO 639-1 / 639-2.
 	langToKeep = [
-		"eng"
+		"eng",
 	]
 
 	# File extensions to include in the file search.
@@ -61,7 +60,7 @@ def main():
 		".m2ts",
 		".m4v",
 		".ts",
-		".vob"
+		".vob",
 	)
 
 	# Cover image file, assumed to be named "cover.jpg" (or other filetypes).
@@ -276,7 +275,9 @@ def main():
 				print()
 
 				# Execute the command.
-				print(subprocess.check_output(muxArguments, shell=True).decode())
+				mkvOutput = subprocess.check_output(muxArguments, shell = True).decode()
+
+				print(mkvOutput)
 
 				# If the new file has been written, calculate the filesize reduction.
 				if os.path.isfile(outputFilePath):
@@ -322,7 +323,20 @@ def main():
 			try:
 				# Run the command.
 				print("\nRenaming files...\n")
-				print(subprocess.check_output(filebotCommand, shell=True).decode())
+
+				filebotOutput  = subprocess.check_output(filebotCommand, shell = True).decode()
+				filebotSummary = printFilebotSummary(filebotOutput)
+
+				if (filebotSummary):
+					print(filebotSummary)
+				else:
+					print(filebotOutput)
+
+				# Save output to log file.
+				logPath = os.path.join(outputPath, "filebot_log.txt")
+
+				with open(logPath, "a") as f:
+					f.write("{}\n\n\n".format(filebotOutput.strip()))
 
 			except:
 				print("\nUnable to rename files.\n")
@@ -339,7 +353,7 @@ def main():
 
 # size.py by cbwar
 # https://gist.github.com/cbwar/d2dfbc19b140bd599daccbe0fe925597
-def readableFileSize(num, suffix="B"):
+def readableFileSize(num, suffix = "B"):
 	for unit in ["", "k", "M", "G", "T", "P", "E", "Z"]:
 		if abs(num) < 1024:
 			return "%3.1f%s%s" % (num, unit, suffix)
@@ -380,9 +394,27 @@ def printTracksSummary(tracks):
 
 		print()
 
+# Print reduced version of Filebot output.
+def printFilebotSummary(shellOutput):
+	renamedFiles = []
+
+	for line in shellOutput.split("\n"):
+		line = line.strip()
+
+		if line != "" and line.find("[MOVE]") == 0:
+			filePair = line.split("] to [")
+			fileFrom = filePair[0][len("[MOVE] From ["):]
+			fileTo   = filePair[1][:-1]
+			fnFrom   = fileFrom.split("\\")[-1]
+			fnTo     = fileTo.split("\\")[-1]
+
+			renamedFiles.append("{}   ->   {}".format(fnFrom, fnTo))
+
+	if renamedFiles:
+		return "\n".join(renamedFiles)
 
 # Add rows of characters to act as separators in shell output.
-def print_sep(string, char="-"):
+def print_sep(string, char = "-"):
 	minStrLen = 25
 
 	if len(string) < minStrLen:
