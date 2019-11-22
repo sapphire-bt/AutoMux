@@ -3,23 +3,30 @@ import mimetypes
 import os
 import re
 import subprocess
+import sys
 import time
 
 def main():
-	# The current directory.
-	currentDir = os.getcwd()
+	# These variables may be set by shell arguments
+	folderToScan = os.getcwd()
+	bFilmMode    = False
 
-	# Output path for remuxed files.
+	if len(sys.argv) > 1:
+		for arg in sys.argv:
+			if arg.lower() == "f":
+				bFilmMode = True
+
+			elif os.path.exists('"{}"'.format(arg)):
+				folderToScan = arg
+
+	# Output path for remuxed files
 	timestamp  = time.strftime("%Y-%m-%d")
-	outputPath = os.path.join(currentDir, "Auto-mux " + timestamp)
+	outputPath = os.path.join(folderToScan, "auto-mux " + timestamp)
 
-	# MKV Merge executable path.
+	# Executables
 	mkvmergePath = "/cygdrive/c/program files/mkvtoolnix/mkvmerge.exe"
+	filebotPath  = "/cygdrive/c/program files/filebot/filebot.launcher.exe"
 
-	# FileBot executable path.
-	filebotPath = "/cygdrive/c/program files/filebot/filebot.launcher.exe"
-
-	# Check that the executables are valid paths.
 	if not os.path.isfile(mkvmergePath):
 		print("Invalid mkvmerge executable path.")
 		return
@@ -28,7 +35,7 @@ def main():
 		print("Invalid FileBot executable path.")
 		return
 
-	# FileBot settings.
+	# FileBot settings passed as command line arguments
 	filebotSettings = {
 		"film": {
 			"db": "TheMovieDB",
@@ -40,18 +47,13 @@ def main():
 		}
 	}
 
-	# Used to determine which database/format should be used with FileBot.
-	# TV will be used when this is set to false.
-	bFilmMode = True
-	bFilmMode = False
-
-	# Total amount of data saved by removing tracks.
 	totalDataRemoved = 0
 
 	# Languages to include when remuxing the file.
 	# Language codes follow ISO 639-1 / 639-2.
 	langToKeep = [
 		"eng",
+		"mul", # "multiple languages"
 	]
 
 	# File extensions to include in the file search.
@@ -71,15 +73,18 @@ def main():
 	# files is a list of dicts containing filenames, paths, and sizes.
 	files = []
 
-	for file in os.listdir(currentDir):
+	print("\nRunning script in {mode} mode; scanning for files...\n".format(mode = "film" if bFilmMode else "TV"))
+
+	for file in os.listdir(folderToScan):
 		fileExt = os.path.splitext(file)[1]
 
 		# Check for media files.
 		if fileExt in allowedExtensions:
 			files.append({
-				"name": file,
-				"path": cygwinPathToWinPath(os.path.join(currentDir, file)),
-				"size": os.path.getsize(file)
+				"name"        : file,
+				"name_no_ext" : os.path.splitext(file)[0],
+				"path"        : cygwinPathToWinPath(os.path.join(folderToScan, file)),
+				"size"        : os.path.getsize(file)
 			})
 
 		# Check for a cover file if one hasn't been found already.
@@ -93,7 +98,7 @@ def main():
 		print("No files found; searching for Blu-ray files...")
 		print()
 
-		for root, directories, filenames in os.walk(currentDir):
+		for root, directories, filenames in os.walk(folderToScan):
 
 			# Main media files are contained within a folder called STREAM.
 			if re.search(r"(\\|\/)STREAM$", root):
@@ -139,7 +144,8 @@ def main():
 							folderName = os.path.split(folderName)[1]
 
 					# Append the name to the largest file's dict.
-					largestFile["name"] = folderName + ".mkv"
+					largestFile["name"]        = folderName + ".mkv"
+					largestFile["name_no_ext"] = folderName
 
 					# Finally, append the file.
 					files.append(largestFile)
@@ -150,9 +156,14 @@ def main():
 
 	# Iterate through each media file and get file data JSON from mkvmerge.exe
 	else:
+		currentFile = 0
+		totalFiles  = len(files)
+
 		for file in files:
+			currentFile += 1
+
 			# File data in JSON format, as returned by mkvmerge command line.
-			fileInfo = json.loads(subprocess.check_output('"{}" "{}" -i -F json'.format(mkvmergePath, file["path"]), shell=True))
+			fileInfo = json.loads(subprocess.check_output('"{}" "{}" -i -F json'.format(mkvmergePath, file["path"]), shell = True))
 
 			# Tracks which match language codes specified in langToKeep.
 			tracksToKeep = {}
@@ -170,10 +181,12 @@ def main():
 				title = None
 
 			# Output filename and title, if possible.
+			currentFileStr = "({}/{})".format(currentFile, totalFiles)
+
 			if title:
-				print_sep("{} | {}".format(file["name"], title), "=")
+				print_sep("{} {} | {}".format(currentFileStr, file["name"], title), "=")
 			else:
-				print_sep(file["name"], "=")
+				print_sep("{} {}".format(currentFileStr, file["name"]), "=")
 
 			# Iterate through each track and sort into dictionaries defined above.
 			for track in fileInfo["tracks"]:
@@ -219,7 +232,7 @@ def main():
 						undTracks[track["type"]] = [info]
 
 			# Ensure that the file will still have video/audio.
-			if "video" not in tracksToKeep.keys() or "audio" not in tracksToKeep.keys():
+			if "video" not in tracksToKeep or "audio" not in tracksToKeep:
 				print('No video or audio tracks matching language codes "{}"; skipping file.'.format(", ".join(langToKeep)))
 
 			# Finally, begin rebuilding the file.
@@ -260,7 +273,7 @@ def main():
 				if not os.path.exists(outputPath):
 					os.makedirs(outputPath)
 
-				outputFilePath = os.path.join(outputPath, file["name"])
+				outputFilePath = os.path.join(outputPath, "{}.mkv".format(file["name_no_ext"]))
 
 				# Format the final shell command.
 				muxArguments = '"{}" -o "{}" --title "" --track-name -1:"" {} --compression -1:none -M "{}"'.format(
@@ -322,7 +335,7 @@ def main():
 
 			try:
 				# Run the command.
-				print("\nRenaming files...\n")
+				print("\nRenaming files using {}...\n".format(settings["db"]))
 
 				filebotOutput  = subprocess.check_output(filebotCommand, shell = True).decode()
 				filebotSummary = printFilebotSummary(filebotOutput)
@@ -350,7 +363,6 @@ def main():
 		print()
 		print("Finished at {}.".format(time.strftime("%H:%M:%S")))
 
-
 # size.py by cbwar
 # https://gist.github.com/cbwar/d2dfbc19b140bd599daccbe0fe925597
 def readableFileSize(num, suffix = "B"):
@@ -361,7 +373,6 @@ def readableFileSize(num, suffix = "B"):
 
 	return "%.1f%s%s" % (num, "Yi", suffix)
 
-
 # Convert a cygwin path to a Windows path.
 # e.g. /cygdrive/d/MyMediaFolder/MyFile.mkv -> D:\MyMediaFolder\MyFile.mkv
 def cygwinPathToWinPath(path):
@@ -369,13 +380,12 @@ def cygwinPathToWinPath(path):
 	# Get rid of cygdrive root and insert colon after drive letter.
 	if path.find("/cygdrive/") == 0:
 		path = path.replace("/cygdrive/", "")
-		path = path[0].upper() + ":" + path[1:len(path)]
+		path = path[0].upper() + ":" + path[1:]
 
 	# Change slashes.
 	path = path.replace("/", "\\")
 
 	return path
-
 
 # Print a single-line summary for a group of tracks.
 def printTracksSummary(tracks):
