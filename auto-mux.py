@@ -11,6 +11,13 @@ def main():
 	folderToScan = os.getcwd()
 	bFilmMode    = False
 
+	# Languages to include when remuxing the file.
+	# Language codes follow ISO 639-1 / 639-2.
+	langToKeep = [
+		"eng",
+		"mul", # "multiple languages"
+	]
+
 	if len(sys.argv) > 1:
 		for arg in sys.argv:
 			if arg.lower() == "f":
@@ -18,6 +25,11 @@ def main():
 
 			elif os.path.exists('"{}"'.format(arg)):
 				folderToScan = arg
+
+			# additional languages may be specified, e.g. "lang:jap"
+			elif arg.find("lang:") == 0:
+				langArgs = [code.lower() for code in arg[len("lang:"):].split(",") if code.strip() != ""]
+				langToKeep.extend(langArgs)
 
 	# Output path for remuxed files
 	timestamp  = time.strftime("%Y-%m-%d")
@@ -49,18 +61,12 @@ def main():
 
 	totalDataRemoved = 0
 
-	# Languages to include when remuxing the file.
-	# Language codes follow ISO 639-1 / 639-2.
-	langToKeep = [
-		"eng",
-		"mul", # "multiple languages"
-	]
-
 	# File extensions to include in the file search.
 	allowedExtensions = (
 		".mkv",
 		".m2ts",
 		".m4v",
+		".mp4",
 		".ts",
 		".vob",
 	)
@@ -337,11 +343,11 @@ def main():
 				# Run the command.
 				print("\nRenaming files using {}...\n".format(settings["db"]))
 
-				filebotOutput  = subprocess.check_output(filebotCommand, shell = True).decode()
-				filebotSummary = printFilebotSummary(filebotOutput)
+				filebotOutput = subprocess.check_output(filebotCommand, shell = True).decode()
+				renamedFiles  = getRenamedFiles(filebotOutput)
 
-				if (filebotSummary):
-					print(filebotSummary)
+				if (renamedFiles):
+					print("\n".join(["{old}   ->   {new}".format(old = file[0], new = file[1]) for file in renamedFiles]))
 				else:
 					print(filebotOutput)
 
@@ -350,6 +356,19 @@ def main():
 
 				with open(logPath, "a") as f:
 					f.write("{}\n\n\n".format(filebotOutput.strip()))
+
+				# Create a folder for each file if remuxing films
+				if bFilmMode:
+					for file in renamedFiles:
+						filmName   = os.path.splitext(file[1])[0]
+						filePath   = os.path.join(outputPath, file[1])
+						filmFolder = os.path.join(outputPath, filmName)
+						newPath    = os.path.join(filmFolder, file[1])
+
+						if not os.path.exists(filmFolder):
+							os.makedirs(filmFolder)
+
+						os.rename(filePath, newPath)
 
 			except:
 				print("\nUnable to rename files.\n")
@@ -405,7 +424,7 @@ def printTracksSummary(tracks):
 		print()
 
 # Print reduced version of Filebot output.
-def printFilebotSummary(shellOutput):
+def getRenamedFiles(shellOutput):
 	renamedFiles = []
 
 	for line in shellOutput.split("\n"):
@@ -418,10 +437,9 @@ def printFilebotSummary(shellOutput):
 			fnFrom   = fileFrom.split("\\")[-1]
 			fnTo     = fileTo.split("\\")[-1]
 
-			renamedFiles.append("{}   ->   {}".format(fnFrom, fnTo))
+			renamedFiles.append((fnFrom, fnTo))
 
-	if renamedFiles:
-		return "\n".join(renamedFiles)
+	return renamedFiles
 
 # Add rows of characters to act as separators in shell output.
 def print_sep(string, char = "-"):
