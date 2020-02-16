@@ -1,3 +1,18 @@
+"""
+To-do:
+  - if lang != "eng" or lang != "und" { sub.eng.default = true }
+  - save output (especially file renaming) to log
+  - add timestamp to all messages
+  - create variable (dict) skippedTracks and output at end
+  - show time elapsed
+  - always scan for blu-ray and mkv files
+  - include subtitles with matching filename
+  - VOB files?
+  - use platform-independent file path for mkvmerge.exe
+    - detect platform and convert file paths accordingly
+  - truncate extremely long filenames
+"""
+
 import json
 import mimetypes
 import os
@@ -270,6 +285,10 @@ def main():
 							trackIds.append(str(track["id"]))
 
 						trackIdsArg += " -{} {}".format(mediaType[0], ",".join(trackIds))
+
+				# Remove all subtitles if none found in specified language
+				if "subtitles" not in tracksToKeep:
+					trackIdsArg += " -S"
 
 				# If there's a cover file present, add the --attach-file parameter.
 				if cover:
